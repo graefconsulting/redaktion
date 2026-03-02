@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: redaktionsplaner-db
+    restart: always
+    environment:
+      POSTGRES_USER: healthrise
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: redaktionsplaner
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  web:
+    build: .
+    container_name: redaktionsplaner-web
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://healthrise:password@db:5432/redaktionsplaner?schema=public
+    depends_on:
+      - db
+
+volumes:
+  postgres-data:

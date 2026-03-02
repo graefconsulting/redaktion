@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Phase 0: Brand DNA Versioning
+model BrandConfig {
+  id               String   @id @default(cuid())
+  isPublished      Boolean  @default(false)
+  
+  // Brand DNA Fields
+  toneAndVoice     String?
+  doAndDont        String?
+  visualGuidelines String?
+  salesIntensity   String?
+  targetAudience   String?
+  optionalFocus    String?
+  ctaGuidelines    String?
+  
+  // Audit/Versioning Fields
+  versionReason    String   @default("Initial revision")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+// Phase 0: Prompt Templates
+model PromptTemplate {
+  id           String   @id @default(cuid())
+  templateType String   // e.g., "research_general", "research_seasonal", "briefing_generation", "content_generation", "image_idea_generation", "image_prompt_generation"
+  content      String
+  
+  isPublished  Boolean  @default(false)
+  versionReason String   @default("Initial revision")
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// PHASE 1 MODELS BELOW
+
+model Product {
+  id               String         @id @default(cuid())
+  name             String
+  category         String
+  shortDescription String?
+  usps             String?        // LLM optimized USPs
+  productUrl       String?
+  images           ProductImage[]
+  postSlots        PostSlot[]     // Associated post slots
+  
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  
+  createdAt DateTime @default(now())
+}
+
+model WeekPlan {
+  id        String     @id @default(cuid())
+  year      Int
+  week      Int      // ISO week number
+  status    String     @default("draft") // draft, finalized
+  
+  globalHints String?
+  
+  postSlots PostSlot[]
+  
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([year, week])
+}
+
+model PostSlot {
+  id         String   @id @default(cuid())
+  weekPlanId String
+  weekPlan   WeekPlan @relation(fields: [weekPlanId], references: [id], onDelete: Cascade)
+  
+  platform   String   @default("facebook")
+  category   String   // Gesundheit, Nahrungsergänzungsmittel, Wasser, Sport, Saisonalität
+  weekday    String?  // Montag, Dienstag, ...
+  postingTime DateTime? // Reserved for future
+  
+  // Assignments
+  productId  String?
+  product    Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  
+  userInstruction String?
+  
+  // LLM Outputs (We store selected versions here directly, or references)
+  selectedBriefing String?
+  selectedContent  String?
+  
+  // Phase 6 Image Ideas
+  referenceImageUrl   String?   // Optional URL to reference product/image
+  selectedImagePrompt String?   // Final finalized prompt for image generation
+  imageInstruction    String?   // Additional instructions for image regeneration
+  imageModel          String?   @default("nano-banana")
+  imageFormat         String?   @default("jpeg")
+  imageSize           String?   @default("1:1")
+  imageResolution     String?   @default("1K")
+  
+  // Image relations
+  images      ImageAsset[]
+  
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model ImageAsset {
+  id         String   @id @default(cuid())
+  postSlotId String?
+  postSlot   PostSlot? @relation(fields: [postSlotId], references: [id], onDelete: SetNull)
+  
+  url        String   // Local path or URL
+  source     String   @default("kieai") // kieai, upload
+  version    Int      @default(1)
+  
+  createdAt  DateTime @default(now())
+}
+
+model Task {
+  id              String   @id @default(cuid())
+  type            String   // research, briefing, content, image_ideas, image_prompt, image_render
+  relatedWeekId   String?
+  relatedPostId   String?
+  
+  status          String   @default("queued") // queued, running, success, failed, timeout
+  attemptCount    Int      @default(0)
+  maxAttempts     Int      @default(1)
+  
+  providerJobId   String?
+  errorMessage    String?
+  durationMs      Int?
+  
+  payload         String?  // JSON stringified input payload
+  resultJson      String?  // JSON stringified result
+  
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model LlmCallLog {
+  id             String   @id @default(cuid())
+  provider       String   // openrouter, gemini, etc.
+  model          String
+  
+  promptTemplateId String?
+  templateVersion  String?
+  
+  finalPromptSent String
+  inputs          String   // JSON stringified inputs
+  fullOutput      String   // Response text or JSON
+  
+  durationMs      Int?
+  
+  // Associated entity references
+  relatedWeekId   String?
+  relatedPostId   String?
+  step            String?  // research, briefing, etc.
+  
+  createdAt       DateTime @default(now())
+}
+
+model UsageCost {
+  id             String   @id @default(cuid())
+  provider       String   // openrouter, kieai
+  model          String
+  
+  promptTokens   Int?
+  completionTokens Int?
+  totalTokens    Int?
+  
+  estimatedCost  Float?   // In USD
+  actualCost     Float?   // If returned by provider
+  
+  llmCallLogId   String?
+  taskId         String?  // For Kie.ai renders
+  
+  createdAt      DateTime @default(now())
+}
