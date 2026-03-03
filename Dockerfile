@@ -20,5 +20,8 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Run migrations and start app
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+# Copy static files needed by standalone
+RUN cp -r public .next/standalone/public && cp -r .next/static .next/standalone/.next/static
+
+# Run db push and start the standalone server
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && cd .next/standalone && node server.js"]
