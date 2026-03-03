@@ -1,13 +1,16 @@
 import { PgBoss, SendOptions } from 'pg-boss';
 
-const boss = new PgBoss(process.env.DATABASE_URL!);
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-boss.on('error', (error: any) => console.error('pg-boss error:', error));
-
+let boss: PgBoss | null = null;
 let isStarted = false;
 
 export async function getQueue() {
+    if (!boss) {
+        const url = process.env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
+        boss = new PgBoss(url);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        boss.on('error', (error: any) => console.error('pg-boss error:', error));
+    }
+
     if (!isStarted) {
         await boss.start();
         isStarted = true;
