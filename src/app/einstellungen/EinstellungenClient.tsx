@@ -175,7 +175,7 @@ export default function EinstellungenClient({ initialBrand, initialTemplates, in
                 if (!res.ok) throw new Error();
                 const data = await res.json();
                 setProducts(prev => [...prev, data.product]);
-            } else if (productDialog && productDialog !== "add") {
+            } else if (productDialog && typeof productDialog !== "string") {
                 const res = await fetch(`/api/settings/products/${productDialog.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
